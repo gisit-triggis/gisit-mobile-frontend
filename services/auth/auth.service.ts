@@ -101,4 +101,12 @@ export const AuthService = {
 
     return response.data;
   },
+
+  async searchCity(query: string): Promise<any> {
+    const response = await axiosInstance({
+      url: `/user/search/city?query=${encodeURIComponent(query)}`,
+      method: 'GET',
+    });
+    return response.data;
+  },
 };

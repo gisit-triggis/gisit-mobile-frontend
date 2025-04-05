@@ -1,23 +1,83 @@
-import React, {useState} from 'react';
-import {StyleSheet, Text, View, TouchableOpacity, Image} from 'react-native';
-import routeImage from '../../static/pen.png';
-import markerImage from '../../static/pen.png';
+import React, {useState, useEffect} from 'react';
+import {
+  StyleSheet,
+  Text,
+  View,
+  TouchableOpacity,
+  Image,
+  TextInput,
+  FlatList,
+  Alert,
+} from 'react-native';
+import Button from './button';
 import personImage from '../../static/person.png';
 import flagImage from '../../static/flag.png';
-import Button from './button';
+// Импортируем CityService и интерфейс ICity
+import {CityService} from '../../services/city/city.service';
+import {ICity} from '../../interfaces/city';
 
-const BottomPanel = () => {
+const BottomPanel: React.FC = () => {
   const [activeTab, setActiveTab] = useState<'route' | 'markers'>('route');
+
+  // Состояния для точки А
+  const [pointAQuery, setPointAQuery] = useState('');
+  const [pointASuggestions, setPointASuggestions] = useState<ICity[]>([]);
+  const [selectedPointA, setSelectedPointA] = useState<ICity | null>(null);
+
+  // Состояния для точки Б
+  const [pointBQuery, setPointBQuery] = useState('');
+  const [pointBSuggestions, setPointBSuggestions] = useState<ICity[]>([]);
+  const [selectedPointB, setSelectedPointB] = useState<ICity | null>(null);
+
+  // Функция для запроса городов по введённому тексту
+  const fetchCities = async (query: string): Promise<ICity[]> => {
+    if (!query) return [];
+    try {
+      const result = await CityService.searchCity(query);
+      // Данные городов находятся в result.data.data согласно вашему примеру
+      return result.data.data;
+    } catch (error) {
+      console.error('Ошибка поиска города:', error);
+      return [];
+    }
+  };
+
+  // Эффект для автодополнения для точки А с задержкой 1 сек
+  useEffect(() => {
+    const delayDebounceFn = setTimeout(() => {
+      if (pointAQuery && !selectedPointA) {
+        fetchCities(pointAQuery).then(suggestions => {
+          setPointASuggestions(suggestions);
+        });
+      } else {
+        setPointASuggestions([]);
+      }
+    }, 1000);
+    return () => clearTimeout(delayDebounceFn);
+  }, [pointAQuery, selectedPointA]);
+
+  // Эффект для автодополнения для точки Б с задержкой 1 сек
+  useEffect(() => {
+    const delayDebounceFn = setTimeout(() => {
+      if (pointBQuery && !selectedPointB) {
+        fetchCities(pointBQuery).then(suggestions => {
+          setPointBSuggestions(suggestions);
+        });
+      } else {
+        setPointBSuggestions([]);
+      }
+    }, 1000);
+    return () => clearTimeout(delayDebounceFn);
+  }, [pointBQuery, selectedPointB]);
 
   return (
     <View style={styles.bottomSheet}>
-      <View style={styles.line}></View>
+      <View style={styles.line} />
       <View style={styles.tabs}>
         <TouchableOpacity
           style={activeTab === 'route' ? styles.tabActive : styles.tabInactive}
           onPress={() => setActiveTab('route')}>
           <Text style={styles.tabText}>Маршрут</Text>
-          {/* <Image source={routeImage} style={styles.tabIcon} /> */}
         </TouchableOpacity>
         <TouchableOpacity
           style={
@@ -25,21 +85,93 @@ const BottomPanel = () => {
           }
           onPress={() => setActiveTab('markers')}>
           <Text style={styles.tabText}>Метки</Text>
-          {/* <Image source={markerImage} style={styles.tabIcon} /> */}
         </TouchableOpacity>
       </View>
 
       {activeTab === 'route' ? (
         <View>
+          {/* Поле для точки А */}
           <View style={styles.inputRow}>
             <Image source={personImage} style={styles.inputIcon} />
-            <Text style={styles.inputText}>Точка А</Text>
+            <View style={styles.inputContainer}>
+              <TextInput
+                style={styles.inputText}
+                placeholder="Точка А"
+                placeholderTextColor="#999"
+                value={selectedPointA ? selectedPointA.title : pointAQuery}
+                onChangeText={text => {
+                  setPointAQuery(text);
+                  setSelectedPointA(null);
+                }}
+              />
+              {pointASuggestions.length > 0 && !selectedPointA && (
+                <FlatList
+                  data={pointASuggestions}
+                  keyExtractor={item => item.id}
+                  renderItem={({item}) => (
+                    <TouchableOpacity
+                      style={styles.suggestionItem}
+                      onPress={() => {
+                        setSelectedPointA(item);
+                        setPointAQuery(item.title);
+                        setPointASuggestions([]);
+                      }}>
+                      <Text style={styles.suggestionText}>{item.title}</Text>
+                    </TouchableOpacity>
+                  )}
+                  style={styles.suggestionsList}
+                  keyboardShouldPersistTaps="handled"
+                />
+              )}
+            </View>
           </View>
+
+          {/* Поле для точки Б */}
           <View style={styles.inputRow}>
             <Image source={flagImage} style={styles.inputIcon} />
-            <Text style={styles.inputText}>Точка Б</Text>
+            <View style={styles.inputContainer}>
+              <TextInput
+                style={styles.inputText}
+                placeholder="Точка Б"
+                placeholderTextColor="#999"
+                value={selectedPointB ? selectedPointB.title : pointBQuery}
+                onChangeText={text => {
+                  setPointBQuery(text);
+                  setSelectedPointB(null);
+                }}
+              />
+              {pointBSuggestions.length > 0 && !selectedPointB && (
+                <FlatList
+                  data={pointBSuggestions}
+                  keyExtractor={item => item.id}
+                  renderItem={({item}) => (
+                    <TouchableOpacity
+                      style={styles.suggestionItem}
+                      onPress={() => {
+                        setSelectedPointB(item);
+                        setPointBQuery(item.title);
+                        setPointBSuggestions([]);
+                      }}>
+                      <Text style={styles.suggestionText}>{item.title}</Text>
+                    </TouchableOpacity>
+                  )}
+                  style={styles.suggestionsList}
+                  keyboardShouldPersistTaps="handled"
+                />
+              )}
+            </View>
           </View>
-          <Button>Проложить маршрут</Button>
+
+          <Button
+            onPress={() => {
+              if (selectedPointA && selectedPointB)
+                Alert.alert(
+                  selectedPointA.geometry.coordinates.toString(),
+                  selectedPointB.geometry.coordinates.toString(),
+                );
+            }}>
+            Проложить маршрут
+          </Button>
         </View>
       ) : (
         <View style={styles.inputRow}>
@@ -55,8 +187,9 @@ const styles = StyleSheet.create({
     width: '50%',
     height: 5,
     borderRadius: 10,
-    backgroundColor: '#F4F7F9',
-    marginHorizontal: 'auto',
+    backgroundColor: '#ccc',
+    alignSelf: 'center',
+    marginBottom: 12,
   },
   bottomSheet: {
     marginTop: -24,
@@ -67,15 +200,11 @@ const styles = StyleSheet.create({
     borderTopLeftRadius: 24,
     borderTopRightRadius: 24,
     padding: 16,
-    display: 'flex',
-    flexDirection: 'column',
-    gap: 12,
   },
   tabs: {
-    display: 'flex',
     flexDirection: 'row',
     justifyContent: 'space-between',
-    gap: 10,
+    marginBottom: 12,
   },
   tabActive: {
     flex: 1,
@@ -83,7 +212,7 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     paddingVertical: 12,
     paddingHorizontal: 16,
-    flexDirection: 'row',
+    marginRight: 8,
     alignItems: 'center',
   },
   tabInactive: {
@@ -92,25 +221,18 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     paddingVertical: 12,
     paddingHorizontal: 16,
-    flexDirection: 'row',
+    marginRight: 8,
     alignItems: 'center',
   },
   tabText: {
     fontSize: 16,
     color: '#0F1C2E',
-    marginRight: 8,
-  },
-  tabIcon: {
-    width: 24,
-    height: 24,
-    resizeMode: 'contain',
   },
   inputRow: {
     flexDirection: 'row',
-    alignItems: 'center',
+    alignItems: 'flex-start',
     backgroundColor: '#F1F4F6',
-    paddingVertical: 16,
-    paddingHorizontal: 16,
+    padding: 12,
     borderRadius: 16,
     marginBottom: 12,
   },
@@ -119,22 +241,48 @@ const styles = StyleSheet.create({
     height: 24,
     resizeMode: 'contain',
     marginRight: 12,
+    marginTop: 4,
+  },
+  inputContainer: {
+    flex: 1,
+    position: 'relative', // для абсолютного позиционирования списка подсказок
   },
   inputText: {
     fontSize: 16,
     color: '#0F1C2E',
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    borderWidth: 1,
+    borderColor: '#ddd',
+    borderRadius: 8,
+    backgroundColor: '#fff',
   },
-  routeButton: {
-    backgroundColor: '#4CB723',
-    borderRadius: 20,
-    paddingVertical: 16,
-    alignItems: 'center',
-    marginTop: 8,
+  suggestionsList: {
+    position: 'absolute',
+    top: '100%',
+    left: 0,
+    right: 0,
+    backgroundColor: '#fff',
+    borderWidth: 1,
+    borderColor: '#ddd',
+    borderRadius: 8,
+    maxHeight: 150,
+    zIndex: 10,
+    marginTop: 4,
+    shadowColor: '#000',
+    shadowOffset: {width: 0, height: 2},
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 2,
   },
-  routeButtonText: {
-    color: '#fff',
-    fontSize: 17,
-    fontWeight: '600',
+  suggestionItem: {
+    padding: 8,
+    borderBottomWidth: 1,
+    borderBottomColor: '#eee',
+  },
+  suggestionText: {
+    fontSize: 16,
+    color: '#0F1C2E',
   },
 });
 
