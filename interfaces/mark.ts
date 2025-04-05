@@ -17,3 +17,10 @@ export interface IMarkResponse {
   message: string;
   data: IMark[];
 }
+
+export interface IMarkCreateRequest {
+  description: string;
+  latitude: number;
+  longitude: number;
+  type: string;
+}

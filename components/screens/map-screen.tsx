@@ -17,6 +17,9 @@ import {
   Text,
   View,
   Image,
+  Modal,
+  Pressable,
+  ActivityIndicator,
 } from 'react-native';
 import {COLORS} from '../../constants/colors';
 import {SafeAreaView} from 'react-native-safe-area-context';
@@ -30,6 +33,7 @@ import dangerMarkerImage from '../../static/danger-mark.png';
 import recommendMarkerImage from '../../static/recommend-mark.png';
 import warningMarkerImage from '../../static/warning-mark.png';
 import {formatIsoDate} from '../lib/uitls';
+import MarkerCreationModal from '../ui/create-mark-modal';
 
 const MapScreen = () => {
   const [locationGranted, setLocationGranted] = useState(false);
@@ -40,12 +44,29 @@ const MapScreen = () => {
   const [geoJsonData, setGeoJsonData] = useState<any>(null);
   const [marks, setMarks] = useState<IMark[]>([]);
   const [selectedMarker, setSelectedMarker] = useState<IMark | null>(null);
+  const [loading, setLoading] = useState(false);
   const cameraRef = useRef<CameraRef>(null);
   const route = useRoute();
+  const [selectedCoordinates, setSelectedCoordinates] = useState<
+    [number, number] | null
+  >(null);
+  const [isModalVisible, setIsModalVisible] = useState(false);
 
   const pitch = 70;
   const styleUrl =
     'https://api.maptiler.com/maps/streets/style.json?key=r8lhIWYHOsXCted9dVIj';
+
+  const loadMarks = async () => {
+    setLoading(true);
+    try {
+      const res = await MarkService.getAll();
+      setMarks(res.data);
+    } catch (e) {
+      console.error('Mark fetch error:', e);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   useEffect(() => {
     const loadPermissionsAndData = async () => {
@@ -66,12 +87,7 @@ const MapScreen = () => {
         .then(setGeoJsonData)
         .catch(err => console.error('GeoJSON error:', err));
 
-      try {
-        const res = await MarkService.getAll();
-        setMarks(res.data);
-      } catch (e) {
-        console.error('Mark fetch error:', e);
-      }
+      loadMarks();
     };
 
     loadPermissionsAndData();
@@ -95,6 +111,14 @@ const MapScreen = () => {
       }
     }
   }, [route.params]);
+
+  const handleMapLongPress = (event: any) => {
+    const coords = event.geometry?.coordinates;
+    if (coords && coords.length === 2) {
+      setSelectedCoordinates([coords[0], coords[1]]);
+      setIsModalVisible(true);
+    }
+  };
 
   const goToUserLocation = async () => {
     if (!locationGranted) return;
@@ -136,7 +160,16 @@ const MapScreen = () => {
     <SafeAreaView style={{flex: 1}}>
       <MenuButton />
       <View style={styles.mapBlock}>
-        <MapView style={styles.map} mapStyle={styleUrl} pitchEnabled>
+        {loading && (
+          <View style={styles.loadingOverlay}>
+            <ActivityIndicator size="large" color={COLORS.primary} />
+          </View>
+        )}
+        <MapView
+          onLongPress={handleMapLongPress}
+          style={styles.map}
+          mapStyle={styleUrl}
+          pitchEnabled>
           <Camera ref={cameraRef} zoomLevel={currentZoom} pitch={pitch} />
           <UserLocation visible={true} renderMode="native" />
 
@@ -159,7 +192,6 @@ const MapScreen = () => {
             </MarkerView>
           ))}
 
-          {/* Popup рендерим отдельно через MarkerView */}
           {selectedMarker && (
             <MarkerView
               key="popup"
@@ -206,6 +238,33 @@ const MapScreen = () => {
         </View>
       </View>
       <BottomPanel />
+
+      <Modal
+        transparent
+        animationType="fade"
+        visible={isModalVisible}
+        onRequestClose={() => setIsModalVisible(false)}>
+        <Pressable
+          style={styles.modalBackdrop}
+          onPress={() => setIsModalVisible(false)}>
+          <Pressable style={styles.modalContainer} onPress={() => {}}>
+            <MarkerCreationModal
+              visible={true}
+              onClose={() => setIsModalVisible(false)}
+              coordinates={selectedCoordinates}
+              onCreated={data => {
+                setIsModalVisible(false);
+                setSelectedCoordinates(null);
+                MarkService.create(data)
+                  .then(() => loadMarks())
+                  .catch(error =>
+                    console.error('Ошибка при создании метки', error),
+                  );
+              }}
+            />
+          </Pressable>
+        </Pressable>
+      </Modal>
     </SafeAreaView>
   );
 };
@@ -265,5 +324,25 @@ const styles = StyleSheet.create({
     paddingVertical: 4,
     borderRadius: 4,
     alignItems: 'center',
+  },
+  modalBackdrop: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.3)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  modalContainer: {
+    backgroundColor: 'white',
+    padding: 16,
+    borderRadius: 16,
+    width: '80%',
+    maxWidth: 400,
+  },
+  loadingOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: 'rgba(255,255,255,0.7)',
+    zIndex: 100,
   },
 });
