@@ -33,7 +33,7 @@ export const MarkService = {
   async delete(id: string) {
     const response = await axiosInstance({
       url: `/user/marks/delete?id=${id}`,
-      method: 'POST',
+      method: 'DELETE',
     });
 
     return response.data;

@@ -20,6 +20,7 @@ import {
   Modal,
   Pressable,
   ActivityIndicator,
+  Alert,
 } from 'react-native';
 import {COLORS} from '../../constants/colors';
 import {SafeAreaView} from 'react-native-safe-area-context';
@@ -108,6 +109,7 @@ const MapScreen = () => {
           zoomLevel: 18,
           animationDuration: 1000,
         });
+        setSelectedMarker(marker);
       }
     }
   }, [route.params]);
@@ -156,13 +158,24 @@ const MapScreen = () => {
     }
   };
 
+  const deleteSelectedMarker = async () => {
+    if (!selectedMarker) return;
+    try {
+      await MarkService.delete(selectedMarker.id);
+      setSelectedMarker(null);
+      await loadMarks();
+    } catch (e) {
+      Alert.alert('Ошибка', 'Не удалось удалить метку');
+    }
+  };
+
   return (
     <SafeAreaView style={{flex: 1}}>
       <MenuButton />
       <View style={styles.mapBlock}>
         {loading && (
           <View style={styles.loadingOverlay}>
-            <ActivityIndicator size="large" color={COLORS.primary} />
+            <ActivityIndicator size="large" color={COLORS['primary-default']} />
           </View>
         )}
         <MapView
@@ -211,6 +224,11 @@ const MapScreen = () => {
                 <Text style={styles.popupText}>
                   {formatIsoDate(selectedMarker.created_at)}
                 </Text>
+                <TouchableOpacity
+                  onPress={deleteSelectedMarker}
+                  style={styles.deleteButton}>
+                  <Text style={{color: 'white'}}>Удалить</Text>
+                </TouchableOpacity>
                 <TouchableOpacity
                   onPress={() => setSelectedMarker(null)}
                   style={styles.closeButton}>
@@ -319,6 +337,13 @@ const styles = StyleSheet.create({
     marginTop: 4,
   },
   closeButton: {
+    marginTop: 8,
+    backgroundColor: 'gray',
+    paddingVertical: 4,
+    borderRadius: 4,
+    alignItems: 'center',
+  },
+  deleteButton: {
     marginTop: 8,
     backgroundColor: 'red',
     paddingVertical: 4,
