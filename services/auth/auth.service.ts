@@ -1,16 +1,8 @@
 import AsyncStorage from "@react-native-async-storage/async-storage"
-import axiosInstance from "@/api/api.interceptor"
-import {
-	ILoginRequest,
-	ILoginResponse,
-	IRegisterRequest,
-	IRegisterResponse,
-} from "@/interfaces/auth"
-import {
-	IProfileChange,
-	IProfileChangeResponse,
-	IProfileResponse,
-} from "@/interfaces/user"
+import { ILoginRequest, ILoginResponse, IRegisterRequest, IRegisterResponse } from "../../interfaces/auth"
+import axiosInstance from "../../api/api.interceptor"
+import { IProfileChange, IProfileChangeResponse, IProfileResponse } from "../../interfaces/user"
+
 
 export const AuthService = {
 	async login(data: ILoginRequest): Promise<ILoginResponse> {

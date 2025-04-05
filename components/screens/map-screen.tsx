@@ -16,7 +16,7 @@ import {
   View,
 } from 'react-native';
 
-const App = () => {
+const MapScreen = () => {
   const [locationGranted, setLocationGranted] = useState(false);
   const cameraRef = useRef<CameraRef>(null);
   const [currentZoom, setCurrentZoom] = useState(12);
@@ -174,4 +174,4 @@ const styles = StyleSheet.create({
   },
 });
 
-export default App;
+export default MapScreen;
