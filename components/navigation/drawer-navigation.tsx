@@ -4,6 +4,8 @@ import React from 'react';
 import MapScreen from '../screens/map-screen';
 import CustomDrawer from './custom-drawer-content';
 import ProfileScreen from '../screens/profile-screen';
+import MyMarksScreen from '../screens/my-marks-screen';
+import MyRoutesScreen from '../screens/my-routes-screen';
 
 const Drawer = createDrawerNavigator();
 
@@ -27,6 +29,20 @@ const DrawerNavigation = () => {
         }}
         name="profile"
         component={ProfileScreen}
+      />
+      <Drawer.Screen
+        options={{
+          headerShown: false,
+        }}
+        name="my_marks"
+        component={MyMarksScreen}
+      />
+      <Drawer.Screen
+        options={{
+          headerShown: false,
+        }}
+        name="my_routes"
+        component={MyRoutesScreen}
       />
     </Drawer.Navigator>
   );

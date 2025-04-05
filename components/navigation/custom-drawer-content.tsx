@@ -68,7 +68,9 @@ const CustomDrawer: React.FC<DrawerContentComponentProps> = ({navigation}) => {
         </TouchableOpacity>
 
         {/* Пример кнопок меню */}
-        <TouchableOpacity style={styles.menuItem}>
+        <TouchableOpacity
+          onPress={() => navigation.navigate('my_marks')}
+          style={styles.menuItem}>
           <Image
             source={require('../../static/dulluur.png')}
             style={styles.icon}
@@ -76,7 +78,9 @@ const CustomDrawer: React.FC<DrawerContentComponentProps> = ({navigation}) => {
           <Text style={styles.menuText}>Мои метки</Text>
         </TouchableOpacity>
 
-        <TouchableOpacity style={styles.menuItem}>
+        <TouchableOpacity
+          onPress={() => navigation.navigate('my_routes')}
+          style={styles.menuItem}>
           <Image
             source={require('../../static/dulluur.png')}
             style={styles.icon}

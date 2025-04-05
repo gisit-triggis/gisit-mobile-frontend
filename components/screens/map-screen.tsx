@@ -19,7 +19,6 @@ import {
 } from 'react-native';
 import {COLORS} from '../../constants/colors';
 import {SafeAreaView} from 'react-native-safe-area-context';
-import menuImage from '../../static/menu.png';
 import geoImage from '../../static/geo.png';
 import routeImage from '../../static/route.png';
 import markerImage from '../../static/marker.png';
@@ -27,6 +26,7 @@ import personImage from '../../static/person.png';
 import flagImage from '../../static/flag.png';
 import {useNavigation} from '@react-navigation/native';
 import BottomPanel from '../ui/bottom-tab';
+import MenuButton from '../ui/menu-button';
 
 const MapScreen = () => {
   const [locationGranted, setLocationGranted] = useState(false);
@@ -123,11 +123,7 @@ const MapScreen = () => {
 
   return (
     <SafeAreaView style={{flex: 1}}>
-      <TouchableOpacity
-        onPress={() => navigation.openDrawer()}
-        style={styles.menuButton}>
-        <Image source={menuImage} style={styles.menuIcon} />
-      </TouchableOpacity>
+      <MenuButton />
 
       <View style={styles.mapBlock}>
         <MapView style={styles.map} mapStyle={styleUrl} pitchEnabled>
