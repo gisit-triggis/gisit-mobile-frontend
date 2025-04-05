@@ -4,6 +4,8 @@ import {
   LocationManager,
   MapView,
   UserLocation,
+  ShapeSource,
+  LineLayer,
 } from '@maplibre/maplibre-react-native';
 import React, {useEffect, useRef, useState} from 'react';
 import {
@@ -19,11 +21,12 @@ import {COLORS} from '../../constants/colors';
 import {SafeAreaView} from 'react-native-safe-area-context';
 import menuImage from '../../static/menu.png';
 import geoImage from '../../static/geo.png';
-import routeImage from '../../static/pen.png';
-import markerImage from '../../static/pen.png';
-import personImage from '../../static/user.png';
-import flagImage from '../../static/pen.png';
+import routeImage from '../../static/route.png';
+import markerImage from '../../static/marker.png';
+import personImage from '../../static/person.png';
+import flagImage from '../../static/flag.png';
 import {useNavigation} from '@react-navigation/native';
+import BottomPanel from '../ui/bottom-tab';
 
 const MapScreen = () => {
   const [locationGranted, setLocationGranted] = useState(false);
@@ -33,6 +36,9 @@ const MapScreen = () => {
   ]);
   const cameraRef = useRef<CameraRef>(null);
   const navigation = useNavigation();
+
+  // Состояние для данных GeoJSON
+  const [geoJsonData, setGeoJsonData] = useState<any>(null);
 
   const pitch = 70;
   const styleUrl =
@@ -62,42 +68,40 @@ const MapScreen = () => {
       }
     });
 
+    // Загружаем GeoJSON с указанного URL
+    fetch('https://s3.gisit-triggis-hackathon.ru/filtered.geojson')
+      .then(response => response.json())
+      .then(data => {
+        setGeoJsonData(data);
+      })
+      .catch(error => console.error('Ошибка загрузки GeoJSON:', error));
+
     return () => {
       LocationManager.stop();
     };
   }, []);
 
   const goToUserLocation = async () => {
-    if (!locationGranted) {
-      console.log('Нет разрешения на геолокацию');
-      return;
-    }
-
+    if (!locationGranted) return;
     const location = await LocationManager.getLastKnownLocation();
     if (location && cameraRef.current) {
       const {longitude, latitude} = location.coords;
       const newZoom = 18;
-
       setCurrentZoom(newZoom);
       setCenterCoord([longitude, latitude]);
-
       cameraRef.current.setCamera({
         centerCoordinate: [longitude, latitude],
         zoomLevel: newZoom,
         animationDuration: 1000,
       });
-    } else {
-      console.log('Геопозиция не получена');
     }
   };
 
   const zoomIn = () => {
     const newZoom = Math.min(currentZoom + 1, 20);
     setCurrentZoom(newZoom);
-
     cameraRef.current?.setCamera({
       zoomLevel: newZoom,
-      centerCoordinate: centerCoord,
       animationDuration: 400,
     });
   };
@@ -105,74 +109,56 @@ const MapScreen = () => {
   const zoomOut = () => {
     const newZoom = Math.max(currentZoom - 1, 1);
     setCurrentZoom(newZoom);
-
     cameraRef.current?.setCamera({
       zoomLevel: newZoom,
-      centerCoordinate: centerCoord,
       animationDuration: 400,
     });
   };
 
+  // Стиль для слоя с GeoJSON (линии)
+  const layerStyle = {
+    lineColor: '#FF0000',
+    lineWidth: 2,
+  };
+
   return (
-    <SafeAreaView style={{flex: 1, position: 'relative'}}>
+    <SafeAreaView style={{flex: 1}}>
       <TouchableOpacity
         onPress={() => navigation.openDrawer()}
         style={styles.menuButton}>
         <Image source={menuImage} style={styles.menuIcon} />
       </TouchableOpacity>
 
-      <MapView style={styles.map} mapStyle={styleUrl} pitchEnabled>
-        <Camera
-          ref={cameraRef}
-          zoomLevel={currentZoom}
-          centerCoordinate={centerCoord}
-          pitch={pitch}
-        />
-        <UserLocation visible={true} renderMode="native" />
-      </MapView>
+      <View style={styles.mapBlock}>
+        <MapView style={styles.map} mapStyle={styleUrl} pitchEnabled>
+          <Camera ref={cameraRef} zoomLevel={currentZoom} pitch={pitch} />
+          <UserLocation visible={true} renderMode="native" />
+          {/* Если данные GeoJSON загружены, отображаем их */}
+          {geoJsonData && (
+            <ShapeSource id="geojson-source" shape={geoJsonData}>
+              <LineLayer id="geojson-line-layer" style={layerStyle} />
+            </ShapeSource>
+          )}
+        </MapView>
 
-      <View style={styles.controls}>
-        <TouchableOpacity style={styles.circleButton} onPress={zoomIn}>
-          <Text style={styles.plus}>＋</Text>
-        </TouchableOpacity>
-        <View style={{height: 12}} />
-        <TouchableOpacity style={styles.circleButton} onPress={zoomOut}>
-          <View style={styles.minus} />
-        </TouchableOpacity>
-        <View style={{height: 12}} />
-        <TouchableOpacity
-          style={styles.circleButton}
-          onPress={goToUserLocation}>
-          <Image source={geoImage} style={styles.menuIcon} />
-        </TouchableOpacity>
-      </View>
-
-      <View style={styles.bottomPanel}>
-        <View style={styles.tabs}>
-          <TouchableOpacity style={styles.tabActive}>
-            <Text style={styles.tabText}>Маршрут</Text>
-            <Image source={routeImage} style={styles.tabIcon} />
+        <View style={styles.controls}>
+          <TouchableOpacity style={styles.circleButton} onPress={zoomIn}>
+            <Text style={styles.plus}>＋</Text>
           </TouchableOpacity>
-          <TouchableOpacity style={styles.tabInactive}>
-            <Text style={styles.tabText}>Метки</Text>
-            <Image source={markerImage} style={styles.tabIcon} />
+          <View style={{height: 12}} />
+          <TouchableOpacity style={styles.circleButton} onPress={zoomOut}>
+            <View style={styles.minus} />
+          </TouchableOpacity>
+          <View style={{height: 12}} />
+          <TouchableOpacity
+            style={styles.circleButton}
+            onPress={goToUserLocation}>
+            <Image source={geoImage} style={styles.menuIcon} />
           </TouchableOpacity>
         </View>
-
-        <View style={styles.inputRow}>
-          <Image source={personImage} style={styles.inputIcon} />
-          <Text style={styles.inputText}>Точка А</Text>
-        </View>
-
-        <View style={styles.inputRow}>
-          <Image source={flagImage} style={styles.inputIcon} />
-          <Text style={styles.inputText}>Точка Б</Text>
-        </View>
-
-        <TouchableOpacity style={styles.routeButton}>
-          <Text style={styles.routeButtonText}>Проложить маршрут</Text>
-        </TouchableOpacity>
       </View>
+
+      <BottomPanel />
     </SafeAreaView>
   );
 };
@@ -181,7 +167,7 @@ const styles = StyleSheet.create({
   map: {flex: 1},
   controls: {
     position: 'absolute',
-    bottom: 80,
+    bottom: 40,
     right: 16,
   },
   circleButton: {
@@ -217,79 +203,8 @@ const styles = StyleSheet.create({
     height: 34,
     resizeMode: 'contain',
   },
-  bottomPanel: {
-    position: 'absolute',
-    bottom: 0,
-    width: '100%',
-    backgroundColor: '#fff',
-    padding: 16,
-    borderTopLeftRadius: 24,
-    borderTopRightRadius: 24,
-  },
-  tabs: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginBottom: 16,
-  },
-  tabActive: {
+  mapBlock: {
     flex: 1,
-    backgroundColor: '#E9F1F9',
-    marginRight: 8,
-    borderRadius: 16,
-    paddingVertical: 12,
-    paddingHorizontal: 16,
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  tabInactive: {
-    flex: 1,
-    backgroundColor: '#F1F4F6',
-    borderRadius: 16,
-    paddingVertical: 12,
-    paddingHorizontal: 16,
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  tabText: {
-    fontSize: 16,
-    color: '#0F1C2E',
-    marginRight: 8,
-  },
-  tabIcon: {
-    width: 24,
-    height: 24,
-    resizeMode: 'contain',
-  },
-  inputRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#F1F4F6',
-    paddingVertical: 12,
-    paddingHorizontal: 16,
-    borderRadius: 16,
-    marginBottom: 12,
-  },
-  inputIcon: {
-    width: 24,
-    height: 24,
-    resizeMode: 'contain',
-    marginRight: 12,
-  },
-  inputText: {
-    fontSize: 16,
-    color: '#0F1C2E',
-  },
-  routeButton: {
-    backgroundColor: '#4CB723',
-    borderRadius: 20,
-    paddingVertical: 14,
-    alignItems: 'center',
-    marginTop: 8,
-  },
-  routeButtonText: {
-    color: '#fff',
-    fontSize: 17,
-    fontWeight: '600',
   },
 });
 

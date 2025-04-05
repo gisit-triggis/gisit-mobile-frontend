@@ -1,4 +1,4 @@
-import React from 'react';
+import React, {useState, useEffect} from 'react';
 import {
   View,
   Text,
@@ -7,46 +7,80 @@ import {
   TouchableOpacity,
   Dimensions,
 } from 'react-native';
-import profileImage from '../../static/dulluur.png';
-import {DrawerContentComponentProps} from '@react-navigation/drawer';
-import {useNavigation} from '@react-navigation/native';
+import {
+  DrawerContentComponentProps,
+  useDrawerStatus,
+} from '@react-navigation/drawer';
 import {SafeAreaView} from 'react-native-safe-area-context';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const screenWidth = Dimensions.get('window').width;
 
+interface IUserProfile {
+  full_name: string;
+  avatar_url: string;
+}
+
 const CustomDrawer: React.FC<DrawerContentComponentProps> = ({navigation}) => {
+  const [userProfile, setUserProfile] = useState<IUserProfile | null>(null);
+  const drawerStatus = useDrawerStatus();
+
+  const fetchUserProfile = async () => {
+    try {
+      const storedUser = await AsyncStorage.getItem('userProfile');
+      if (storedUser) {
+        setUserProfile(JSON.parse(storedUser));
+      }
+    } catch (error) {
+      console.error('Ошибка загрузки данных профиля:', error);
+    }
+  };
+
+  useEffect(() => {
+    if (drawerStatus === 'open') {
+      fetchUserProfile();
+    }
+  }, [drawerStatus]);
+
   return (
-    <SafeAreaView
-      style={{
-        flex: 1,
-        paddingTop: 62,
-      }}>
+    <SafeAreaView style={{flex: 1, paddingTop: 62}}>
       <View style={styles.drawerContainer}>
-        {/* Профиль */}
+        {/* Блок профиля */}
         <TouchableOpacity
-          onPress={() => {
-            navigation.navigate('profile');
-          }}
+          onPress={() => navigation.navigate('profile')}
           style={styles.profileBlock}>
           <Image
-            source={profileImage} // заменишь на своего пользователя
+            source={
+              userProfile && userProfile.avatar_url
+                ? {uri: userProfile.avatar_url}
+                : require('../../static/dulluur.png')
+            }
             style={styles.avatar}
           />
           <View style={{flex: 1}}>
-            <Text style={styles.name}>Оконешников Д.</Text>
+            <Text style={styles.name}>
+              {userProfile && userProfile.full_name
+                ? userProfile.full_name
+                : 'Имя пользователя'}
+            </Text>
           </View>
           <Text style={styles.arrow}>›</Text>
         </TouchableOpacity>
 
-        {/* Кнопка 1 */}
+        {/* Пример кнопок меню */}
         <TouchableOpacity style={styles.menuItem}>
-          <Image source={profileImage} style={styles.icon} />
+          <Image
+            source={require('../../static/dulluur.png')}
+            style={styles.icon}
+          />
           <Text style={styles.menuText}>Мои метки</Text>
         </TouchableOpacity>
 
-        {/* Кнопка 2 */}
         <TouchableOpacity style={styles.menuItem}>
-          <Image source={profileImage} style={styles.icon} />
+          <Image
+            source={require('../../static/dulluur.png')}
+            style={styles.icon}
+          />
           <Text style={styles.menuText}>Мои пути</Text>
         </TouchableOpacity>
       </View>
@@ -55,11 +89,6 @@ const CustomDrawer: React.FC<DrawerContentComponentProps> = ({navigation}) => {
 };
 
 const styles = StyleSheet.create({
-  wrapper: {
-    flex: 1,
-    backgroundColor: 'transparent',
-    paddingTop: 32,
-  },
   drawerContainer: {
     flex: 1,
     backgroundColor: '#fff',

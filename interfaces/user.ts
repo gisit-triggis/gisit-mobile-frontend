@@ -1,33 +1,33 @@
 export interface IUser {
-	email: string
-	name: string
-	surname: string
-	full_name: string
+  email: string;
+  name: string;
+  surname: string;
+  full_name: string;
+  avatar_url?: string; // <-- новое поле
 }
 
 export interface IProfileChange {
-	name?: string
-	surname?: string
+  name?: string;
+  surname?: string;
 }
 
 export interface IProfileChangeResponse {
-	message: string
-	data: {
-		name: string
-		surname: string
-	}
+  message: string;
+  data: {
+    name: string;
+    surname: string;
+  };
 }
 
 export interface IProfileResponse {
-	message: string
-	data: IUser
+  message: string;
+  data: IUser;
 }
 
-// "message": "Successful",
-//     "data": {
-//         "id": "01jqzk3kczd9vx50d4855zx78g",
-//         "email": "dulluur@gmail.com",
-//         "name": "Dulluur",
-//         "surname": "Okoneshnikov",
-//         "full_name": "Dulluur Okoneshnikov"
-//     }
+// Дополнительный интерфейс для ответа при загрузке аватара
+export interface IProfilePhotoResponse {
+  message: string;
+  data: {
+    url: string;
+  };
+}

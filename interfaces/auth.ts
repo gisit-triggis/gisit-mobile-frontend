@@ -1,27 +1,38 @@
 export interface ILoginRequest {
-	email: string
-	password: string
+  email: string;
+  password: string;
 }
 
 export interface ILoginResponse {
-	message: string
-	data: {
-		token: string
-		valid_until: string
-	}
+  message: string;
+  data: {
+    token: string;
+    valid_until: string;
+  };
 }
 
 export interface IRegisterRequest {
-	email: string
-	password: string
+  email: string;
+  password: string;
 }
 
 export interface IRegisterResponse {
-	message: string
-	data: {
-		token: string
-		valid_until: string
-	}
+  message: string;
+  data: {
+    token: string;
+    valid_until: string;
+  };
+}
+
+export interface IAvaChangeRequest {
+  file: File;
+}
+
+export interface IAvaChangeResponse {
+  message: string;
+  data: {
+    url: string;
+  };
 }
 
 // "message": "Successful",
