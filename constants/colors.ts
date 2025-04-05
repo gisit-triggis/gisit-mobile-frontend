@@ -12,4 +12,6 @@ export const COLORS = {
   'text-surface': '#E6E9EC',
   'text-hover': '#0B3346',
   white: '#FFFFFF',
+  'muted-border': '#D1DDE5',
+  danger: '#D9434E',
 };

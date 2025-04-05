@@ -6,15 +6,25 @@ import {
   ActivityIndicator,
   Alert,
   StyleSheet,
+  Image,
+  TouchableOpacity,
 } from 'react-native';
 import {useNavigation} from '@react-navigation/native';
 import {IProfileResponse, IUser} from '../../interfaces/user';
 import {AuthService} from '../../services/auth/auth.service';
 import {Text} from 'react-native-gesture-handler';
 import Button from '../ui/button';
+import backArrow from '../../static/arrow-left.png';
+import profileImage from '../../static/dulluur.png';
+import penImage from '../../static/pen.png';
+import userImage from '../../static/user.png';
+import mailImage from '../../static/mail.png';
+import {COLORS} from '../../constants/colors';
+import ProfileTextField from '../ui/profile-textfield';
 
 const ProfileScreen: React.FC = () => {
   const navigation = useNavigation();
+
   const [profile, setProfile] = useState<IUser | null>(null);
   const [loading, setLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState('');
@@ -94,45 +104,128 @@ const ProfileScreen: React.FC = () => {
   }
 
   return (
-    <SafeAreaView style={styles.container}>
-      <View style={styles.content}>
-        <Text style={styles.title}>Профиль пользователя</Text>
-        {isEditing ? (
-          <View>
-            <Text>Имя:</Text>
-            <TextInput
-              style={styles.input}
-              value={editedName}
-              onChangeText={setEditedName}
-              placeholder="Введите имя"
+    <SafeAreaView
+      style={{
+        flex: 1,
+        display: 'flex',
+        flexDirection: 'column',
+      }}>
+      <View
+        style={{
+          flex: 1,
+          display: 'flex',
+          flexDirection: 'column',
+          paddingHorizontal: 16,
+          paddingBottom: 16,
+        }}>
+        <View
+          style={{
+            display: 'flex',
+            flexDirection: 'row',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+            paddingVertical: 24,
+          }}>
+          <TouchableOpacity
+            onPress={() => {
+              navigation.goBack();
+            }}>
+            <Image
+              style={{
+                height: 24,
+                width: 24,
+              }}
+              source={backArrow}
+              alt="back arrow"
             />
-            <Text>Фамилия:</Text>
-            <TextInput
-              style={styles.input}
-              value={editedSurname}
-              onChangeText={setEditedSurname}
-              placeholder="Введите фамилию"
-            />
-            <View style={styles.buttonRow}>
-              <Button onPress={handleSave}>Сохранить</Button>
-              <Button onPress={handleCancel}>Отменить</Button>
+          </TouchableOpacity>
+
+          <Text style={{fontSize: 18}}>Редактирование профиля</Text>
+
+          <View style={{width: 24, height: 24}}></View>
+        </View>
+        {/* // Profile */}
+        <View
+          style={{
+            width: '100%',
+            display: 'flex',
+            justifyContent: 'center',
+            alignItems: 'center',
+            height: 167,
+            position: 'relative',
+          }}>
+          <Image
+            source={profileImage}
+            alt="proifle image"
+            style={{width: 145, height: 145, borderRadius: 10000}}
+          />
+
+          <TouchableOpacity
+            style={{
+              position: 'absolute',
+              bottom: 0,
+              marginHorizontal: 'auto',
+            }}
+            onPress={() => {
+              Alert.alert('Вы меняете изображение');
+            }}>
+            <View
+              style={{
+                display: 'flex',
+                justifyContent: 'center',
+                alignItems: 'center',
+                width: 44,
+                height: 44,
+                backgroundColor: COLORS.white,
+                borderRadius: 10000,
+              }}>
+              <Image
+                style={{width: 24, height: 24}}
+                source={penImage}
+                alt="pen image"
+              />
             </View>
+          </TouchableOpacity>
+        </View>
+
+        <View
+          style={{
+            flex: 1,
+            display: 'flex',
+            flexDirection: 'column',
+            gap: 8,
+          }}>
+          <ProfileTextField
+            icon={userImage}
+            value={editedName}
+            onChangeText={setEditedName}
+            placeholder="Введите имя"
+          />
+          <ProfileTextField
+            icon={userImage}
+            value={editedSurname}
+            onChangeText={setEditedSurname}
+            placeholder="Введите фамилию"
+          />
+          <ProfileTextField value={profile?.email || ''} icon={mailImage} />
+
+          <View
+            style={{
+              width: '100%',
+              display: 'flex',
+              flexDirection: 'column',
+              gap: 8,
+              position: 'absolute',
+              bottom: 0,
+            }}>
+            <Button onPress={handleSave}>Сохранить</Button>
+            <Button variant='danger' onPress={handleLogout}>Выйти</Button>
           </View>
-        ) : (
-          <View>
-            <Text style={styles.text}>Имя: {profile?.name}</Text>
-            <Text style={styles.text}>Фамилия: {profile?.surname}</Text>
-            <Text style={styles.text}>Email: {profile?.email}</Text>
-            <Text style={styles.text}>Полное имя: {profile?.full_name}</Text>
-            <View style={styles.buttonRow}>
-              <Button onPress={() => setIsEditing(true)}>Изменить</Button>
-            </View>
-          </View>
-        )}
-        <Button variant='' onPress={handleLogout}>
-          Выйти
-        </Button>
-        {errorMessage ? <Text style={styles.error}>{errorMessage}</Text> : null}
+
+          {errorMessage ? (
+            <Text style={styles.error}>{errorMessage}</Text>
+          ) : null}
+        </View>
       </View>
     </SafeAreaView>
   );

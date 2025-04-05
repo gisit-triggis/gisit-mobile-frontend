@@ -14,15 +14,21 @@ const Button: FC<IButtonProps> = ({children, variant = 'default', ...rest}) => {
     <TouchableOpacity
       style={{
         paddingHorizontal: 24,
-        paddingVertical: 12,
-        borderRadius: 8,
-        backgroundColor: COLORS['primary-default'],
+        paddingVertical: 20,
+        borderRadius: 20,
+
+        backgroundColor:
+          variant === 'default'
+            ? COLORS['primary-default']
+            : variant === 'danger'
+            ? COLORS.danger
+            : 'black',
         display: 'flex',
         justifyContent: 'center',
         alignItems: 'center',
       }}
       {...rest}>
-      <Text style={{color: COLORS.white}}>{children}</Text>
+      <Text style={{color: COLORS.white, fontWeight: 600}}>{children}</Text>
     </TouchableOpacity>
   );
 };
