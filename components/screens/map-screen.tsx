@@ -6,6 +6,7 @@ import {
   UserLocation,
   ShapeSource,
   LineLayer,
+  MarkerView,
 } from '@maplibre/maplibre-react-native';
 import React, {useEffect, useRef, useState} from 'react';
 import {
@@ -20,13 +21,15 @@ import {
 import {COLORS} from '../../constants/colors';
 import {SafeAreaView} from 'react-native-safe-area-context';
 import geoImage from '../../static/geo.png';
-import routeImage from '../../static/route.png';
-import markerImage from '../../static/marker.png';
-import personImage from '../../static/person.png';
-import flagImage from '../../static/flag.png';
-import {useNavigation} from '@react-navigation/native';
+import {useNavigation, useRoute} from '@react-navigation/native';
 import BottomPanel from '../ui/bottom-tab';
 import MenuButton from '../ui/menu-button';
+import {MarkService} from '../../services/mark/mark.service';
+import {IMark} from '../../interfaces/mark';
+import dangerMarkerImage from '../../static/danger-mark.png';
+import recommendMarkerImage from '../../static/recommend-mark.png';
+import warningMarkerImage from '../../static/warning-mark.png';
+import {formatIsoDate} from '../lib/uitls';
 
 const MapScreen = () => {
   const [locationGranted, setLocationGranted] = useState(false);
@@ -34,64 +37,73 @@ const MapScreen = () => {
   const [centerCoord, setCenterCoord] = useState<[number, number]>([
     129.733, 62.028,
   ]);
-  const cameraRef = useRef<CameraRef>(null);
-  const navigation = useNavigation();
-
-  // Состояние для данных GeoJSON
   const [geoJsonData, setGeoJsonData] = useState<any>(null);
+  const [marks, setMarks] = useState<IMark[]>([]);
+  const [selectedMarker, setSelectedMarker] = useState<IMark | null>(null);
+  const cameraRef = useRef<CameraRef>(null);
+  const route = useRoute();
 
   const pitch = 70;
   const styleUrl =
     'https://api.maptiler.com/maps/streets/style.json?key=r8lhIWYHOsXCted9dVIj';
 
-  const requestLocationPermission = async () => {
-    if (Platform.OS === 'android') {
-      const granted = await PermissionsAndroid.request(
-        PermissionsAndroid.PERMISSIONS.ACCESS_FINE_LOCATION,
-        {
-          title: 'Геолокация',
-          message:
-            'Разрешите доступ к геопозиции для отображения вашего местоположения.',
-          buttonPositive: 'Разрешить',
-        },
-      );
-      return granted === PermissionsAndroid.RESULTS.GRANTED;
-    }
-    return true;
-  };
-
   useEffect(() => {
-    requestLocationPermission().then(granted => {
-      if (granted) {
+    const loadPermissionsAndData = async () => {
+      const granted =
+        Platform.OS === 'android'
+          ? await PermissionsAndroid.request(
+              PermissionsAndroid.PERMISSIONS.ACCESS_FINE_LOCATION,
+            )
+          : true;
+
+      if (granted === true || granted === PermissionsAndroid.RESULTS.GRANTED) {
         LocationManager.start();
         setLocationGranted(true);
       }
-    });
 
-    // Загружаем GeoJSON с указанного URL
-    fetch('https://s3.gisit-triggis-hackathon.ru/filtered.geojson')
-      .then(response => response.json())
-      .then(data => {
-        setGeoJsonData(data);
-      })
-      .catch(error => console.error('Ошибка загрузки GeoJSON:', error));
+      fetch('https://s3.gisit-triggis-hackathon.ru/filtered.geojson')
+        .then(res => res.json())
+        .then(setGeoJsonData)
+        .catch(err => console.error('GeoJSON error:', err));
+
+      try {
+        const res = await MarkService.getAll();
+        setMarks(res.data);
+      } catch (e) {
+        console.error('Mark fetch error:', e);
+      }
+    };
+
+    loadPermissionsAndData();
 
     return () => {
       LocationManager.stop();
     };
   }, []);
 
+  useEffect(() => {
+    if (route.params && (route.params as any).marker) {
+      const marker = (route.params as any).marker;
+      if (marker.geometry?.coordinates) {
+        const [lon, lat] = marker.geometry.coordinates;
+        setCenterCoord([lon, lat]);
+        cameraRef.current?.setCamera({
+          centerCoordinate: [lon, lat],
+          zoomLevel: 18,
+          animationDuration: 1000,
+        });
+      }
+    }
+  }, [route.params]);
+
   const goToUserLocation = async () => {
     if (!locationGranted) return;
     const location = await LocationManager.getLastKnownLocation();
     if (location && cameraRef.current) {
       const {longitude, latitude} = location.coords;
-      const newZoom = 18;
-      setCurrentZoom(newZoom);
-      setCenterCoord([longitude, latitude]);
       cameraRef.current.setCamera({
         centerCoordinate: [longitude, latitude],
-        zoomLevel: newZoom,
+        zoomLevel: 18,
         animationDuration: 1000,
       });
     }
@@ -100,40 +112,80 @@ const MapScreen = () => {
   const zoomIn = () => {
     const newZoom = Math.min(currentZoom + 1, 20);
     setCurrentZoom(newZoom);
-    cameraRef.current?.setCamera({
-      zoomLevel: newZoom,
-      animationDuration: 400,
-    });
+    cameraRef.current?.setCamera({zoomLevel: newZoom, animationDuration: 400});
   };
 
   const zoomOut = () => {
     const newZoom = Math.max(currentZoom - 1, 1);
     setCurrentZoom(newZoom);
-    cameraRef.current?.setCamera({
-      zoomLevel: newZoom,
-      animationDuration: 400,
-    });
+    cameraRef.current?.setCamera({zoomLevel: newZoom, animationDuration: 400});
   };
 
-  // Стиль для слоя с GeoJSON (линии)
-  const layerStyle = {
-    lineColor: '#FF0000',
-    lineWidth: 2,
+  const getMarkerImage = (type: string) => {
+    switch (type) {
+      case 'danger':
+        return dangerMarkerImage;
+      case 'recommend':
+        return recommendMarkerImage;
+      default:
+        return warningMarkerImage;
+    }
   };
 
   return (
     <SafeAreaView style={{flex: 1}}>
       <MenuButton />
-
       <View style={styles.mapBlock}>
         <MapView style={styles.map} mapStyle={styleUrl} pitchEnabled>
           <Camera ref={cameraRef} zoomLevel={currentZoom} pitch={pitch} />
           <UserLocation visible={true} renderMode="native" />
-          {/* Если данные GeoJSON загружены, отображаем их */}
+
           {geoJsonData && (
             <ShapeSource id="geojson-source" shape={geoJsonData}>
-              <LineLayer id="geojson-line-layer" style={layerStyle} />
+              <LineLayer id="geojson-line-layer" style={styles.lineStyle} />
             </ShapeSource>
+          )}
+
+          {marks.map(marker => (
+            <MarkerView
+              key={marker.id}
+              coordinate={marker.geometry.coordinates}>
+              <TouchableOpacity onPress={() => setSelectedMarker(marker)}>
+                <Image
+                  source={getMarkerImage(marker.type)}
+                  style={{width: 32, height: 41}}
+                />
+              </TouchableOpacity>
+            </MarkerView>
+          ))}
+
+          {/* Popup рендерим отдельно через MarkerView */}
+          {selectedMarker && (
+            <MarkerView
+              key="popup"
+              coordinate={selectedMarker.geometry.coordinates}>
+              <View style={styles.popup}>
+                <Text>
+                  Тип:{' '}
+                  {selectedMarker.type === 'recommend'
+                    ? 'Рекомендация'
+                    : selectedMarker.type === 'danger'
+                    ? 'Опасность'
+                    : 'Предупреждение'}
+                </Text>
+                <Text style={styles.popupText}>
+                  Описание: {selectedMarker.description}
+                </Text>
+                <Text style={styles.popupText}>
+                  {formatIsoDate(selectedMarker.created_at)}
+                </Text>
+                <TouchableOpacity
+                  onPress={() => setSelectedMarker(null)}
+                  style={styles.closeButton}>
+                  <Text style={{color: 'white'}}>Закрыть</Text>
+                </TouchableOpacity>
+              </View>
+            </MarkerView>
           )}
         </MapView>
 
@@ -153,14 +205,17 @@ const MapScreen = () => {
           </TouchableOpacity>
         </View>
       </View>
-
       <BottomPanel />
     </SafeAreaView>
   );
 };
 
+export default MapScreen;
+
 const styles = StyleSheet.create({
   map: {flex: 1},
+  mapBlock: {flex: 1},
+  lineStyle: {lineColor: '#FF0000', lineWidth: 2},
   controls: {
     position: 'absolute',
     bottom: 40,
@@ -182,26 +237,33 @@ const styles = StyleSheet.create({
     backgroundColor: '#000',
     borderRadius: 1000,
   },
-  menuButton: {
-    position: 'absolute',
-    top: 80,
-    left: 16,
-    backgroundColor: COLORS.white,
-    width: 56,
-    height: 56,
-    borderRadius: 100,
-    justifyContent: 'center',
-    alignItems: 'center',
-    zIndex: 10,
-  },
   menuIcon: {
     width: 34,
     height: 34,
     resizeMode: 'contain',
   },
-  mapBlock: {
-    flex: 1,
+  popup: {
+    backgroundColor: 'white',
+    borderRadius: 8,
+    padding: 8,
+    minWidth: 160,
+    borderWidth: 1,
+    borderColor: '#ccc',
+    elevation: 5,
+    shadowColor: '#000',
+    shadowOpacity: 0.2,
+    shadowRadius: 6,
+  },
+  popupText: {
+    fontSize: 14,
+    color: '#333',
+    marginTop: 4,
+  },
+  closeButton: {
+    marginTop: 8,
+    backgroundColor: 'red',
+    paddingVertical: 4,
+    borderRadius: 4,
+    alignItems: 'center',
   },
 });
-
-export default MapScreen;

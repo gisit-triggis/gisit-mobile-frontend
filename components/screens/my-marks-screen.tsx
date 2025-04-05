@@ -25,7 +25,7 @@ const MyMarksScreen: React.FC = () => {
   useEffect(() => {
     const fetchMarks = async () => {
       try {
-        const response = await MarkService.getAll();
+        const response = await MarkService.getMy();
         // response.data – массив меток
         setMarks(response.data);
       } catch (error) {

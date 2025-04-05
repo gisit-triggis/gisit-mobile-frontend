@@ -1,4 +1,4 @@
-import React, {useState, useEffect} from 'react';
+import React, {useState, useEffect, useContext} from 'react';
 import {
   StyleSheet,
   Text,
@@ -8,33 +8,49 @@ import {
   TextInput,
   FlatList,
   Alert,
+  ScrollView,
 } from 'react-native';
 import Button from './button';
 import personImage from '../../static/person.png';
 import flagImage from '../../static/flag.png';
-// Импортируем CityService и интерфейс ICity
 import {CityService} from '../../services/city/city.service';
+import {MarkService} from '../../services/mark/mark.service';
 import {ICity} from '../../interfaces/city';
+import {IMark} from '../../interfaces/mark';
+import MarkItem from './mark-item';
+import {useNavigation} from '@react-navigation/native';
 
 const BottomPanel: React.FC = () => {
+  const navigation = useNavigation();
   const [activeTab, setActiveTab] = useState<'route' | 'markers'>('route');
 
-  // Состояния для точки А
+  // Состояния маршрута
   const [pointAQuery, setPointAQuery] = useState('');
   const [pointASuggestions, setPointASuggestions] = useState<ICity[]>([]);
   const [selectedPointA, setSelectedPointA] = useState<ICity | null>(null);
 
-  // Состояния для точки Б
   const [pointBQuery, setPointBQuery] = useState('');
   const [pointBSuggestions, setPointBSuggestions] = useState<ICity[]>([]);
   const [selectedPointB, setSelectedPointB] = useState<ICity | null>(null);
 
-  // Функция для запроса городов по введённому тексту
+  // Метки
+  const [marks, setMarks] = useState<IMark[]>([]);
+
+  useEffect(() => {
+    if (activeTab === 'markers') {
+      MarkService.getMy()
+        .then(res => {
+          setMarks(res.data);
+        })
+        .catch(err => console.error('Ошибка загрузки меток', err));
+    }
+  }, [activeTab]);
+
+  // Автоподсказки
   const fetchCities = async (query: string): Promise<ICity[]> => {
     if (!query) return [];
     try {
       const result = await CityService.searchCity(query);
-      // Данные городов находятся в result.data.data согласно вашему примеру
       return result.data.data;
     } catch (error) {
       console.error('Ошибка поиска города:', error);
@@ -42,32 +58,26 @@ const BottomPanel: React.FC = () => {
     }
   };
 
-  // Эффект для автодополнения для точки А с задержкой 1 сек
   useEffect(() => {
-    const delayDebounceFn = setTimeout(() => {
+    const delay = setTimeout(() => {
       if (pointAQuery && !selectedPointA) {
-        fetchCities(pointAQuery).then(suggestions => {
-          setPointASuggestions(suggestions);
-        });
+        fetchCities(pointAQuery).then(setPointASuggestions);
       } else {
         setPointASuggestions([]);
       }
-    }, 1000);
-    return () => clearTimeout(delayDebounceFn);
+    }, 500);
+    return () => clearTimeout(delay);
   }, [pointAQuery, selectedPointA]);
 
-  // Эффект для автодополнения для точки Б с задержкой 1 сек
   useEffect(() => {
-    const delayDebounceFn = setTimeout(() => {
+    const delay = setTimeout(() => {
       if (pointBQuery && !selectedPointB) {
-        fetchCities(pointBQuery).then(suggestions => {
-          setPointBSuggestions(suggestions);
-        });
+        fetchCities(pointBQuery).then(setPointBSuggestions);
       } else {
         setPointBSuggestions([]);
       }
-    }, 1000);
-    return () => clearTimeout(delayDebounceFn);
+    }, 500);
+    return () => clearTimeout(delay);
   }, [pointBQuery, selectedPointB]);
 
   return (
@@ -89,8 +99,8 @@ const BottomPanel: React.FC = () => {
       </View>
 
       {activeTab === 'route' ? (
-        <View>
-          {/* Поле для точки А */}
+        <>
+          {/* Точка А */}
           <View style={styles.inputRow}>
             <Image source={personImage} style={styles.inputIcon} />
             <View style={styles.inputContainer}>
@@ -126,7 +136,7 @@ const BottomPanel: React.FC = () => {
             </View>
           </View>
 
-          {/* Поле для точки Б */}
+          {/* Точка Б */}
           <View style={styles.inputRow}>
             <Image source={flagImage} style={styles.inputIcon} />
             <View style={styles.inputContainer}>
@@ -172,11 +182,21 @@ const BottomPanel: React.FC = () => {
             }}>
             Проложить маршрут
           </Button>
-        </View>
+        </>
       ) : (
-        <View style={styles.inputRow}>
-          <Text style={styles.inputText}>Метки появятся здесь</Text>
-        </View>
+        <ScrollView style={{maxHeight: 250}}>
+          {marks.map(mark => (
+            <TouchableOpacity
+              key={mark.id}
+              onPress={() =>
+                navigation.navigate('main', {
+                  marker: mark,
+                })
+              }>
+              <MarkItem marker={mark} />
+            </TouchableOpacity>
+          ))}
+        </ScrollView>
       )}
     </View>
   );

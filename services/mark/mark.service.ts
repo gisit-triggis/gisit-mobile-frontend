@@ -13,7 +13,7 @@ export const MarkService = {
 
   async getMy(): Promise<IMarkResponse> {
     const response = await axiosInstance({
-      url: '/user/marks/my',
+      url: '/user/marks/me',
       method: 'GET',
     });
 
