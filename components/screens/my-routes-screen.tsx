@@ -21,6 +21,7 @@ interface SavedRoute {
   from: string;
   to: string;
   image: string;
+  routes: any; // можешь типизировать точнее, если знаешь структуру
 }
 
 const STORAGE_KEY = 'routes';
@@ -36,6 +37,7 @@ const MyRoutesScreen = () => {
       const json = await AsyncStorage.getItem(STORAGE_KEY);
       if (json) {
         const parsed: SavedRoute[] = JSON.parse(json);
+        console.log(parsed);
         setRoutes(parsed);
       }
     } catch (err) {
@@ -97,6 +99,12 @@ const MyRoutesScreen = () => {
           routes.map(route => (
             <TouchableOpacity
               key={route.id}
+              onPress={() => {
+                Alert.alert(route.route);
+                navigation.navigate('main', {
+                  selectedRoute: JSON.parse(route.routes),
+                });
+              }}
               onLongPress={() => deleteRoute(route.id)}
               delayLongPress={400}
               style={styles.routeCard}>

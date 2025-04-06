@@ -1,3 +1,5 @@
+// map-screen.tsx
+
 import {
   Camera,
   CameraRef,
@@ -25,7 +27,7 @@ import {
 import {COLORS} from '../../constants/colors';
 import {SafeAreaView} from 'react-native-safe-area-context';
 import geoImage from '../../static/geo.png';
-import {useNavigation, useRoute} from '@react-navigation/native';
+import {useRoute} from '@react-navigation/native';
 import BottomPanel from '../ui/bottom-tab';
 import MenuButton from '../ui/menu-button';
 import {MarkService} from '../../services/mark/mark.service';
@@ -44,6 +46,7 @@ const MapScreen = () => {
     129.733, 62.028,
   ]);
   const [geoJsonData, setGeoJsonData] = useState<any>(null);
+  const [routeGeoJson, setRouteGeoJson] = useState<any>(null);
   const [marks, setMarks] = useState<IMark[]>([]);
   const [selectedMarker, setSelectedMarker] = useState<IMark | null>(null);
   const [loading, setLoading] = useState(false);
@@ -53,8 +56,6 @@ const MapScreen = () => {
     [number, number] | null
   >(null);
   const [isModalVisible, setIsModalVisible] = useState(false);
-
-  // Новые состояния для точки A и B
   const [selectedPointA, setSelectedPointA] = useState<ICity | null>(null);
   const [selectedPointB, setSelectedPointB] = useState<ICity | null>(null);
 
@@ -97,16 +98,14 @@ const MapScreen = () => {
     };
 
     loadPermissionsAndData();
-
-    return () => {
-      LocationManager.stop();
-    };
+    return () => LocationManager.stop();
   }, []);
 
   useEffect(() => {
-    if (route.params && (route.params as any).marker) {
-      const marker = (route.params as any).marker;
-      if (marker.geometry?.coordinates) {
+    if (route.params) {
+      const {marker, selectedRoute} = route.params as any;
+
+      if (marker?.geometry?.coordinates) {
         const [lon, lat] = marker.geometry.coordinates;
         setCenterCoord([lon, lat]);
         cameraRef.current?.setCamera({
@@ -115,6 +114,21 @@ const MapScreen = () => {
           animationDuration: 1000,
         });
         setSelectedMarker(marker);
+      }
+
+      if (selectedRoute) {
+        setRouteGeoJson(selectedRoute);
+
+        const coordinates = selectedRoute?.features?.[0]?.geometry?.coordinates;
+        if (coordinates && coordinates.length > 0) {
+          const [lon, lat] = coordinates[0];
+          setCenterCoord([lon, lat]);
+          cameraRef.current?.setCamera({
+            centerCoordinate: [lon, lat],
+            zoomLevel: 14,
+            animationDuration: 1000,
+          });
+        }
       }
     }
   }, [route.params]);
@@ -163,14 +177,12 @@ const MapScreen = () => {
   };
 
   const zoomIn = () => {
-    if (currentZoom + 1 > 20) return;
     const newZoom = Math.min(currentZoom + 1, 20);
     setCurrentZoom(newZoom);
     cameraRef.current?.setCamera({zoomLevel: newZoom, animationDuration: 400});
   };
 
   const zoomOut = () => {
-    if (currentZoom - 1 < 1) return;
     const newZoom = Math.max(currentZoom - 1, 1);
     setCurrentZoom(newZoom);
     cameraRef.current?.setCamera({zoomLevel: newZoom, animationDuration: 400});
@@ -218,6 +230,12 @@ const MapScreen = () => {
           {geoJsonData && (
             <ShapeSource id="geojson-source" shape={geoJsonData}>
               <LineLayer id="geojson-line-layer" style={styles.lineStyle} />
+            </ShapeSource>
+          )}
+
+          {routeGeoJson && (
+            <ShapeSource id="route-source" shape={routeGeoJson}>
+              <LineLayer id="route-line-layer" style={styles.routeStyle} />
             </ShapeSource>
           )}
 
@@ -284,9 +302,10 @@ const MapScreen = () => {
           </TouchableOpacity>
         </View>
       </View>
+
       <BottomPanel
-        onSelectPointA={point => setSelectedPointA(point)}
-        onSelectPointB={point => setSelectedPointB(point)}
+        onSelectPointA={setSelectedPointA}
+        onSelectPointB={setSelectedPointB}
       />
 
       <Modal
@@ -305,11 +324,7 @@ const MapScreen = () => {
               onCreated={data => {
                 setIsModalVisible(false);
                 setSelectedCoordinates(null);
-                MarkService.create(data)
-                  .then(() => loadMarks())
-                  .catch(error =>
-                    console.error('Ошибка при создании метки', error),
-                  );
+                MarkService.create(data).then(() => loadMarks());
               }}
             />
           </Pressable>
@@ -325,6 +340,7 @@ const styles = StyleSheet.create({
   map: {flex: 1},
   mapBlock: {flex: 1},
   lineStyle: {lineColor: '#FF0000', lineWidth: 2},
+  routeStyle: {lineColor: '#1E90FF', lineWidth: 3},
   controls: {
     position: 'absolute',
     bottom: 40,
