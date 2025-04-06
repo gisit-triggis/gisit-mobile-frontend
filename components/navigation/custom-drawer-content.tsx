@@ -87,6 +87,15 @@ const CustomDrawer: React.FC<DrawerContentComponentProps> = ({navigation}) => {
           />
           <Text style={styles.menuText}>Мои пути</Text>
         </TouchableOpacity>
+        <TouchableOpacity
+          onPress={() => navigation.navigate('llm')}
+          style={styles.menuItem}>
+          <Image
+            source={require('../../static/dulluur.png')}
+            style={styles.icon}
+          />
+          <Text style={styles.menuText}>FAQ</Text>
+        </TouchableOpacity>
       </View>
     </SafeAreaView>
   );

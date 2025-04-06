@@ -38,8 +38,86 @@ import recommendMarkerImage from '../../static/recommend-mark.png';
 import warningMarkerImage from '../../static/warning-mark.png';
 import {formatIsoDate} from '../lib/uitls';
 import MarkerCreationModal from '../ui/create-mark-modal';
+import carImage from '../../static/car.png';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import axiosInstance from '../../api/api.interceptor';
+
+interface IUserInMap {
+  userId: string;
+  lon: number;
+  lat: number;
+}
 
 const MapScreen = () => {
+  const [userPositions, setUserPosition] = useState<
+    Record<string, {lon: number; lat: number}>
+  >({});
+
+  useEffect(() => {
+    const connectWebSocket = async () => {
+      const token = await AsyncStorage.getItem('sso');
+      if (!token) return;
+
+      const ws = new WebSocket(
+        `wss://ws.gisit-triggis-hackathon.ru/ws?token=${token}`,
+      );
+
+      ws.onmessage = event => {
+        try {
+          const data = JSON.parse(event.data);
+          if (data.type === 'position_update') {
+            setUserPosition(prev => ({
+              ...prev,
+              [data.user_id]: {
+                lon: data.lon,
+                lat: data.lat,
+              },
+            }));
+          } else if (data.type === 'init') {
+            const initPositions: Record<string, {lon: number; lat: number}> =
+              {};
+            for (const p of data.positions) {
+              initPositions[p.user_id] = {
+                lon: p.lon,
+                lat: p.lat,
+              };
+            }
+            setUserPosition(initPositions);
+          }
+        } catch (e) {
+          console.error('WebSocket error:', e);
+        }
+      };
+
+      ws.onerror = err => console.error('WebSocket error', err);
+      ws.onclose = () => console.log('WebSocket closed');
+
+      return () => ws.close();
+    };
+
+    connectWebSocket();
+  }, []);
+
+  useEffect(() => {
+    const sendPosition = async () => {
+      const location = await LocationManager.getLastKnownLocation();
+      if (location) {
+        await axiosInstance({
+          url: 'https://api.gisit-triggis-hackathon.ru/api/v1/user/gps',
+          method: 'PATCH',
+          data: JSON.stringify({
+            latitude: location.coords.latitude,
+            longitude: location.coords.longitude,
+          }),
+        }).catch(console.error);
+      }
+    };
+
+    sendPosition();
+    const interval = setInterval(sendPosition, 60000);
+    return () => clearInterval(interval);
+  }, []);
+
   const [locationGranted, setLocationGranted] = useState(false);
   const [currentZoom, setCurrentZoom] = useState(15);
   const [centerCoord, setCenterCoord] = useState<[number, number]>([
@@ -263,6 +341,12 @@ const MapScreen = () => {
               </ShapeSource>
             </>
           )}
+
+          {Object.entries(userPositions).map(([id, pos]) => (
+            <MarkerView key={id} coordinate={[pos.lon, pos.lat]}>
+              <Image source={carImage} style={{width: 32, height: 32}} />
+            </MarkerView>
+          ))}
 
           {marks.map(marker => (
             <MarkerView

@@ -6,6 +6,7 @@ import CustomDrawer from './custom-drawer-content';
 import ProfileScreen from '../screens/profile-screen';
 import MyMarksScreen from '../screens/my-marks-screen';
 import MyRoutesScreen from '../screens/my-routes-screen';
+import LLMFAQScreen from '../screens/llm-faq-screen';
 
 const Drawer = createDrawerNavigator();
 
@@ -43,6 +44,13 @@ const DrawerNavigation = () => {
         }}
         name="my_routes"
         component={MyRoutesScreen}
+      />
+      <Drawer.Screen
+        options={{
+          headerShown: false,
+        }}
+        name="llm"
+        component={LLMFAQScreen}
       />
     </Drawer.Navigator>
   );
