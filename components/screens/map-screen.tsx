@@ -29,6 +29,7 @@ import {useNavigation, useRoute} from '@react-navigation/native';
 import BottomPanel from '../ui/bottom-tab';
 import MenuButton from '../ui/menu-button';
 import {MarkService} from '../../services/mark/mark.service';
+import {ICity} from '../../interfaces/city';
 import {IMark} from '../../interfaces/mark';
 import dangerMarkerImage from '../../static/danger-mark.png';
 import recommendMarkerImage from '../../static/recommend-mark.png';
@@ -52,6 +53,10 @@ const MapScreen = () => {
     [number, number] | null
   >(null);
   const [isModalVisible, setIsModalVisible] = useState(false);
+
+  // Новые состояния для точки A и B
+  const [selectedPointA, setSelectedPointA] = useState<ICity | null>(null);
+  const [selectedPointB, setSelectedPointB] = useState<ICity | null>(null);
 
   const pitch = 70;
   const styleUrl =
@@ -114,6 +119,28 @@ const MapScreen = () => {
     }
   }, [route.params]);
 
+  useEffect(() => {
+    if (selectedPointA) {
+      const [lon, lat] = selectedPointA.geometry.coordinates;
+      cameraRef.current?.setCamera({
+        centerCoordinate: [lon, lat],
+        zoomLevel: 14,
+        animationDuration: 1000,
+      });
+    }
+  }, [selectedPointA]);
+
+  useEffect(() => {
+    if (selectedPointB) {
+      const [lon, lat] = selectedPointB.geometry.coordinates;
+      cameraRef.current?.setCamera({
+        centerCoordinate: [lon, lat],
+        zoomLevel: 14,
+        animationDuration: 1000,
+      });
+    }
+  }, [selectedPointB]);
+
   const handleMapLongPress = (event: any) => {
     const coords = event.geometry?.coordinates;
     if (coords && coords.length === 2) {
@@ -136,12 +163,14 @@ const MapScreen = () => {
   };
 
   const zoomIn = () => {
+    if (currentZoom + 1 > 20) return;
     const newZoom = Math.min(currentZoom + 1, 20);
     setCurrentZoom(newZoom);
     cameraRef.current?.setCamera({zoomLevel: newZoom, animationDuration: 400});
   };
 
   const zoomOut = () => {
+    if (currentZoom - 1 < 1) return;
     const newZoom = Math.max(currentZoom - 1, 1);
     setCurrentZoom(newZoom);
     cameraRef.current?.setCamera({zoomLevel: newZoom, animationDuration: 400});
@@ -255,7 +284,10 @@ const MapScreen = () => {
           </TouchableOpacity>
         </View>
       </View>
-      <BottomPanel />
+      <BottomPanel
+        onSelectPointA={point => setSelectedPointA(point)}
+        onSelectPointB={point => setSelectedPointB(point)}
+      />
 
       <Modal
         transparent

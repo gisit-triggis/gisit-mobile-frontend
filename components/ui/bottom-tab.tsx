@@ -1,4 +1,4 @@
-import React, {useState, useEffect, useContext} from 'react';
+import React, {useState, useEffect} from 'react';
 import {
   StyleSheet,
   Text,
@@ -9,22 +9,36 @@ import {
   FlatList,
   Alert,
   ScrollView,
+  ActivityIndicator,
+  Modal,
 } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import Button from './button';
 import personImage from '../../static/person.png';
 import flagImage from '../../static/flag.png';
 import {CityService} from '../../services/city/city.service';
 import {MarkService} from '../../services/mark/mark.service';
+import {RouteService} from '../../services/route/route.service';
 import {ICity} from '../../interfaces/city';
 import {IMark} from '../../interfaces/mark';
 import MarkItem from './mark-item';
 import {useNavigation} from '@react-navigation/native';
+import {getBoundingPolygon} from '../lib/uitls';
+import axios from 'axios';
+import ImageViewer from 'react-native-image-zoom-viewer';
 
-const BottomPanel: React.FC = () => {
+interface BottomPanelProps {
+  onSelectPointA: (point: ICity) => void;
+  onSelectPointB: (point: ICity) => void;
+}
+
+const BottomPanel: React.FC<BottomPanelProps> = ({
+  onSelectPointA,
+  onSelectPointB,
+}) => {
   const navigation = useNavigation();
   const [activeTab, setActiveTab] = useState<'route' | 'markers'>('route');
 
-  // Состояния маршрута
   const [pointAQuery, setPointAQuery] = useState('');
   const [pointASuggestions, setPointASuggestions] = useState<ICity[]>([]);
   const [selectedPointA, setSelectedPointA] = useState<ICity | null>(null);
@@ -33,8 +47,10 @@ const BottomPanel: React.FC = () => {
   const [pointBSuggestions, setPointBSuggestions] = useState<ICity[]>([]);
   const [selectedPointB, setSelectedPointB] = useState<ICity | null>(null);
 
-  // Метки
   const [marks, setMarks] = useState<IMark[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [routeImage, setRouteImage] = useState<string | null>(null);
+  const [previewVisible, setPreviewVisible] = useState(false);
 
   useEffect(() => {
     if (activeTab === 'markers') {
@@ -46,7 +62,6 @@ const BottomPanel: React.FC = () => {
     }
   }, [activeTab]);
 
-  // Автоподсказки
   const fetchCities = async (query: string): Promise<ICity[]> => {
     if (!query) return [];
     try {
@@ -80,6 +95,59 @@ const BottomPanel: React.FC = () => {
     return () => clearTimeout(delay);
   }, [pointBQuery, selectedPointB]);
 
+  const handleRouteSubmit = async () => {
+    if (!selectedPointA || !selectedPointB) return;
+
+    const start = selectedPointA.geometry.coordinates;
+    const end = selectedPointB.geometry.coordinates;
+
+    const geojson_geometry = getBoundingPolygon(start, end);
+
+    setLoading(true);
+    setRouteImage(null);
+
+    try {
+      const response = await RouteService.postRoute({
+        geojson_geometry,
+        start_point_lon_lat: start,
+        end_point_lon_lat: end,
+      });
+      Alert.alert('Успех', 'Маршрут успешно отправлен на сервер');
+      console.log('Route response:', response);
+
+      if (response?.data?.image) {
+        const image = response.data.image;
+        setRouteImage(image);
+
+        const newRoute = {
+          id: Date.now().toString(),
+          from: selectedPointA.title,
+          to: selectedPointB.title,
+          image,
+          routes: response.data.routes,
+        };
+
+        const existingRoutes = await AsyncStorage.getItem('routes');
+        const routes = existingRoutes ? JSON.parse(existingRoutes) : [];
+        routes.push(newRoute);
+        await AsyncStorage.setItem('routes', JSON.stringify(routes));
+      }
+    } catch (e: any) {
+      console.error('Ошибка при отправке маршрута:', e);
+      if (axios.isAxiosError(e)) {
+        const details = e.response?.data || e.message;
+        Alert.alert(
+          'Ошибка',
+          `Не удалось отправить маршрут: ${JSON.stringify(details, null, 2)}`,
+        );
+      } else {
+        Alert.alert('Ошибка', 'Неизвестная ошибка при отправке маршрута');
+      }
+    } finally {
+      setLoading(false);
+    }
+  };
+
   return (
     <View style={styles.bottomSheet}>
       <View style={styles.line} />
@@ -100,7 +168,7 @@ const BottomPanel: React.FC = () => {
 
       {activeTab === 'route' ? (
         <>
-          {/* Точка А */}
+          {/* Inputs */}
           <View style={styles.inputRow}>
             <Image source={personImage} style={styles.inputIcon} />
             <View style={styles.inputContainer}>
@@ -125,6 +193,7 @@ const BottomPanel: React.FC = () => {
                         setSelectedPointA(item);
                         setPointAQuery(item.title);
                         setPointASuggestions([]);
+                        onSelectPointA(item);
                       }}>
                       <Text style={styles.suggestionText}>{item.title}</Text>
                     </TouchableOpacity>
@@ -136,7 +205,6 @@ const BottomPanel: React.FC = () => {
             </View>
           </View>
 
-          {/* Точка Б */}
           <View style={styles.inputRow}>
             <Image source={flagImage} style={styles.inputIcon} />
             <View style={styles.inputContainer}>
@@ -161,6 +229,7 @@ const BottomPanel: React.FC = () => {
                         setSelectedPointB(item);
                         setPointBQuery(item.title);
                         setPointBSuggestions([]);
+                        onSelectPointB(item);
                       }}>
                       <Text style={styles.suggestionText}>{item.title}</Text>
                     </TouchableOpacity>
@@ -172,16 +241,41 @@ const BottomPanel: React.FC = () => {
             </View>
           </View>
 
-          <Button
-            onPress={() => {
-              if (selectedPointA && selectedPointB)
-                Alert.alert(
-                  selectedPointA.geometry.coordinates.toString(),
-                  selectedPointB.geometry.coordinates.toString(),
-                );
-            }}>
-            Проложить маршрут
-          </Button>
+          <Button onPress={handleRouteSubmit}>Проложить маршрут</Button>
+
+          {loading && (
+            <ActivityIndicator
+              size="large"
+              color="#007AFF"
+              style={{marginTop: 12}}
+            />
+          )}
+          {routeImage && (
+            <TouchableOpacity onPress={() => setPreviewVisible(true)}>
+              <Image
+                source={{uri: routeImage}}
+                style={{
+                  width: '100%',
+                  height: 200,
+                  marginTop: 12,
+                  borderRadius: 12,
+                }}
+                resizeMode="contain"
+              />
+            </TouchableOpacity>
+          )}
+
+          {/* Fullscreen preview */}
+          <Modal visible={previewVisible} transparent>
+            <ImageViewer
+              imageUrls={[{url: routeImage || ''}]}
+              onCancel={() => setPreviewVisible(false)}
+              enableSwipeDown
+              onSwipeDown={() => setPreviewVisible(false)}
+              renderIndicator={() => null}
+              saveToLocalByLongPress={false}
+            />
+          </Modal>
         </>
       ) : (
         <ScrollView style={{maxHeight: 250}}>
@@ -265,7 +359,7 @@ const styles = StyleSheet.create({
   },
   inputContainer: {
     flex: 1,
-    position: 'relative', // для абсолютного позиционирования списка подсказок
+    position: 'relative',
   },
   inputText: {
     fontSize: 16,
