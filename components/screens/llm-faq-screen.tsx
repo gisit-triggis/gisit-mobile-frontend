@@ -1,16 +1,18 @@
 import React, {useState} from 'react';
 import {
-  View,
+  SafeAreaView,
+  StyleSheet,
   Text,
+  View,
   TextInput,
   TouchableOpacity,
-  StyleSheet,
   KeyboardAvoidingView,
   Platform,
   ScrollView,
   ActivityIndicator,
 } from 'react-native';
-import {SafeAreaView} from 'react-native-safe-area-context';
+import {LocationManager} from '@maplibre/maplibre-react-native';
+import axiosInstance from '../../api/api.interceptor';
 import {COLORS} from '../../constants/colors';
 
 const LLMFAQScreen = () => {
@@ -18,55 +20,62 @@ const LLMFAQScreen = () => {
   const [answer, setAnswer] = useState('');
   const [loading, setLoading] = useState(false);
 
-  const handleAsk = async () => {
+  const askQuestion = async () => {
     if (!question.trim()) return;
     setLoading(true);
     try {
-      const response = await fetch(
-        'https://api.gisit-triggis-hackathon.ru/api/v1/llm/faq',
+      const location = await LocationManager.getLastKnownLocation();
+      if (!location) throw new Error('Местоположение не получено');
+
+      const res = await axiosInstance.get(
+        'https://api.gisit-triggis-hackathon.ru/api/v1/user/ai/ask',
         {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
+          params: {
+            question,
+            route_id: 'Среднеколымск - Андрюшкино',
+            longitude: location.coords.longitude,
+            latitude: location.coords.latitude,
           },
-          body: JSON.stringify({prompt: question}),
         },
       );
-      const data = await response.json();
-      setAnswer(data.answer);
-    } catch (error) {
-      setAnswer('Произошла ошибка при получении ответа.');
+
+      setAnswer(res.data.answer || 'Нет ответа');
+    } catch (err) {
+      console.error(err);
+      setAnswer('Ошибка при получении ответа.');
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <SafeAreaView style={{flex: 1, backgroundColor: '#fff'}}>
+    <SafeAreaView style={styles.container}>
       <KeyboardAvoidingView
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-        style={styles.container}>
-        <Text style={styles.title}>Задать вопрос</Text>
-        <TextInput
-          style={styles.input}
-          placeholder="Напишите ваш вопрос..."
-          value={question}
-          onChangeText={setQuestion}
-          multiline
-          textAlignVertical="top"
-        />
-        <TouchableOpacity
-          style={styles.button}
-          onPress={handleAsk}
-          disabled={loading}>
-          <Text style={styles.buttonText}>Спросить</Text>
-        </TouchableOpacity>
+        style={styles.inner}
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+        <ScrollView contentContainerStyle={styles.scroll}>
+          <Text style={styles.title}>Задать вопрос</Text>
+          <TextInput
+            style={styles.input}
+            placeholder="Введите вопрос..."
+            placeholderTextColor="#999"
+            multiline
+            value={question}
+            onChangeText={setQuestion}
+          />
+          <TouchableOpacity onPress={askQuestion} style={styles.askButton}>
+            {loading ? (
+              <ActivityIndicator color="#fff" />
+            ) : (
+              <Text style={styles.askText}>Спросить</Text>
+            )}
+          </TouchableOpacity>
 
-        <ScrollView style={styles.answerBox}>
-          {loading ? (
-            <ActivityIndicator size="large" color={COLORS['primary-default']} />
-          ) : (
-            <Text style={styles.answerText}>{answer}</Text>
+          {answer !== '' && (
+            <View style={styles.answerBlock}>
+              <Text style={styles.answerLabel}>Ответ:</Text>
+              <Text style={styles.answerText}>{answer}</Text>
+            </View>
           )}
         </ScrollView>
       </KeyboardAvoidingView>
@@ -74,50 +83,62 @@ const LLMFAQScreen = () => {
   );
 };
 
+export default LLMFAQScreen;
+
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    padding: 16,
+    backgroundColor: '#fff',
+  },
+  inner: {
+    flex: 1,
+    padding: 20,
+  },
+  scroll: {
+    flexGrow: 1,
+    justifyContent: 'center',
   },
   title: {
-    fontSize: 20,
+    fontSize: 24,
     fontWeight: '600',
-    marginBottom: 12,
-    color: '#000',
+    marginBottom: 16,
+    color: '#222',
   },
   input: {
     borderColor: '#ddd',
     borderWidth: 1,
     borderRadius: 12,
-    padding: 12,
-    height: 120,
-    backgroundColor: '#f9f9f9',
+    padding: 16,
     fontSize: 16,
+    height: 120,
+    textAlignVertical: 'top',
+    marginBottom: 16,
+    backgroundColor: '#f9f9f9',
   },
-  button: {
-    marginTop: 16,
-    backgroundColor: COLORS['primary-default'],
+  askButton: {
+    backgroundColor: COLORS['primary-default'] || '#2E7D32',
     paddingVertical: 14,
     borderRadius: 12,
     alignItems: 'center',
   },
-  buttonText: {
-    color: '#fff',
+  askText: {
+    color: 'white',
     fontSize: 16,
     fontWeight: '600',
   },
-  answerBox: {
+  answerBlock: {
     marginTop: 24,
-    padding: 12,
+    backgroundColor: '#f1f1f1',
+    padding: 16,
     borderRadius: 12,
-    backgroundColor: '#f0f0f0',
-    flex: 1,
+  },
+  answerLabel: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    marginBottom: 6,
   },
   answerText: {
-    fontSize: 16,
+    fontSize: 15,
     color: '#333',
-    lineHeight: 22,
   },
 });
-
-export default LLMFAQScreen;
