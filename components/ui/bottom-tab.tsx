@@ -30,23 +30,22 @@ import ImageViewer from 'react-native-image-zoom-viewer';
 interface BottomPanelProps {
   onSelectPointA: (point: ICity) => void;
   onSelectPointB: (point: ICity) => void;
+  onRouteReady?: (geojson: any) => void;
 }
 
 const BottomPanel: React.FC<BottomPanelProps> = ({
   onSelectPointA,
   onSelectPointB,
+  onRouteReady,
 }) => {
   const navigation = useNavigation();
   const [activeTab, setActiveTab] = useState<'route' | 'markers'>('route');
-
   const [pointAQuery, setPointAQuery] = useState('');
   const [pointASuggestions, setPointASuggestions] = useState<ICity[]>([]);
   const [selectedPointA, setSelectedPointA] = useState<ICity | null>(null);
-
   const [pointBQuery, setPointBQuery] = useState('');
   const [pointBSuggestions, setPointBSuggestions] = useState<ICity[]>([]);
   const [selectedPointB, setSelectedPointB] = useState<ICity | null>(null);
-
   const [marks, setMarks] = useState<IMark[]>([]);
   const [loading, setLoading] = useState(false);
   const [routeImage, setRouteImage] = useState<string | null>(null);
@@ -100,7 +99,6 @@ const BottomPanel: React.FC<BottomPanelProps> = ({
 
     const start = selectedPointA.geometry.coordinates;
     const end = selectedPointB.geometry.coordinates;
-
     const geojson_geometry = getBoundingPolygon(start, end);
 
     setLoading(true);
@@ -113,10 +111,11 @@ const BottomPanel: React.FC<BottomPanelProps> = ({
         end_point_lon_lat: end,
       });
       Alert.alert('Успех', 'Маршрут успешно отправлен на сервер');
-      console.log('Route response:', response);
 
       if (response?.data?.image) {
         const image = response.data.image;
+        const routeGeojson = response.data.routes;
+
         setRouteImage(image);
 
         const newRoute = {
@@ -124,13 +123,17 @@ const BottomPanel: React.FC<BottomPanelProps> = ({
           from: selectedPointA.title,
           to: selectedPointB.title,
           image,
-          routes: response.data.routes,
+          routes: routeGeojson,
         };
 
         const existingRoutes = await AsyncStorage.getItem('routes');
         const routes = existingRoutes ? JSON.parse(existingRoutes) : [];
         routes.push(newRoute);
         await AsyncStorage.setItem('routes', JSON.stringify(routes));
+
+        if (onRouteReady) {
+          onRouteReady(routeGeojson);
+        }
       }
     } catch (e: any) {
       console.error('Ошибка при отправке маршрута:', e);

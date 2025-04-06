@@ -155,6 +155,25 @@ const MapScreen = () => {
     }
   }, [selectedPointB]);
 
+  const handleRouteReady = (geojsonProp: any) => {
+    console.log(
+      '📦 routeGeojson from server:',
+      JSON.stringify(geojsonProp, null, 2),
+    );
+    setRouteGeoJson(JSON.parse(geojsonProp));
+
+    const coordinates = geojsonProp?.features?.[0]?.geometry?.coordinates;
+    if (coordinates && coordinates.length > 0) {
+      const [lon, lat] = coordinates[0];
+      setCenterCoord([lon, lat]);
+      cameraRef.current?.setCamera({
+        centerCoordinate: [lon, lat],
+        zoomLevel: 14,
+        animationDuration: 1000,
+      });
+    }
+  };
+
   const handleMapLongPress = (event: any) => {
     const coords = event.geometry?.coordinates;
     if (coords && coords.length === 2) {
@@ -168,6 +187,7 @@ const MapScreen = () => {
     const location = await LocationManager.getLastKnownLocation();
     if (location && cameraRef.current) {
       const {longitude, latitude} = location.coords;
+      setCurrentZoom(18); // 🔧 Обновляем состояние, чтобы зум был в синхронизации
       cameraRef.current.setCamera({
         centerCoordinate: [longitude, latitude],
         zoomLevel: 18,
@@ -177,12 +197,14 @@ const MapScreen = () => {
   };
 
   const zoomIn = () => {
+    if (currentZoom + 1 > 20) return;
     const newZoom = Math.min(currentZoom + 1, 20);
     setCurrentZoom(newZoom);
     cameraRef.current?.setCamera({zoomLevel: newZoom, animationDuration: 400});
   };
 
   const zoomOut = () => {
+    if (currentZoom - 1 < 1) return;
     const newZoom = Math.max(currentZoom - 1, 1);
     setCurrentZoom(newZoom);
     cameraRef.current?.setCamera({zoomLevel: newZoom, animationDuration: 400});
@@ -234,9 +256,12 @@ const MapScreen = () => {
           )}
 
           {routeGeoJson && (
-            <ShapeSource id="route-source" shape={routeGeoJson}>
-              <LineLayer id="route-line-layer" style={styles.routeStyle} />
-            </ShapeSource>
+            <>
+              {console.log('🗺 Rendering routeGeoJson:', routeGeoJson)}
+              <ShapeSource id="route-source" shape={routeGeoJson}>
+                <LineLayer id="route-line-layer" style={styles.routeStyle} />
+              </ShapeSource>
+            </>
           )}
 
           {marks.map(marker => (
@@ -306,6 +331,7 @@ const MapScreen = () => {
       <BottomPanel
         onSelectPointA={setSelectedPointA}
         onSelectPointB={setSelectedPointB}
+        onRouteReady={handleRouteReady}
       />
 
       <Modal
